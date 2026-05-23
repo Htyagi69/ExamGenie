@@ -77,7 +77,16 @@ const processHeaderUpload = async (req, res) => {
 
     if (apiKey) {
       console.log('Gemini API key found. Offloading header visual scan directly to Gemini Multimodal...');
-      structuredPaper = await parseExamImagesMultimodal([req.file], lang);
+      try {
+        structuredPaper = await parseExamImagesMultimodal([req.file], lang);
+      } catch (geminiError) {
+        console.error('Gemini Multimodal Vision failed, falling back to local Tesseract OCR:', geminiError.message);
+        const rawText = await extractText(req.file, lang);
+        if (!rawText || rawText.trim().length === 0) {
+          throw new Error('Could not extract any text from the header file.');
+        }
+        structuredPaper = await parseExamText(rawText);
+      }
     } else {
       console.log('No Gemini key. Running local Tesseract OCR for header...');
       const rawText = await extractText(req.file, lang);
@@ -134,7 +143,27 @@ const processQuestionsUpload = async (req, res) => {
 
     if (apiKey) {
       console.log('Gemini API key found. Offloading multi-page questions visual scan directly to Gemini Multimodal...');
-      structuredPaper = await parseExamImagesMultimodal(tempFiles, lang);
+      try {
+        structuredPaper = await parseExamImagesMultimodal(tempFiles, lang);
+      } catch (geminiError) {
+        console.error('Gemini Multimodal Vision failed, falling back to local Tesseract OCR:', geminiError.message);
+        let combinedRawText = '';
+
+        // Extract text from each file sequentially to maintain visual page order
+        for (let i = 0; i < tempFiles.length; i++) {
+          const file = tempFiles[i];
+          console.log(`Processing file ${i + 1}/${tempFiles.length}: ${file.originalname}`);
+          const text = await extractText(file, lang);
+          combinedRawText += `\n\n--- PAGE ${i + 1} ---\n\n` + text;
+        }
+
+        if (!combinedRawText || combinedRawText.trim().length === 0) {
+          throw new Error('Could not extract any question text from the uploaded pages.');
+        }
+
+        // Parse the entire combined text
+        structuredPaper = await parseExamText(combinedRawText);
+      }
     } else {
       console.log('No Gemini key. Sequentially running local Tesseract OCR on page array...');
       let combinedRawText = '';

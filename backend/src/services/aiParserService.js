@@ -1,5 +1,7 @@
 const axios = require('axios');
 const fs = require('fs');
+const dotenv=require('dotenv')
+dotenv.config();
 
 
 /**
@@ -303,7 +305,7 @@ const parseExamText = async (rawText) => {
       6. Never assign or extract marks for subparts/sub-questions. The "marks" property in elements of the "subQuestions" array must always be set to 0. All marks must only be mapped to the parent/main question.
     `;
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     
     const response = await axios.post(url, {
       contents: [{
@@ -327,6 +329,9 @@ const parseExamText = async (rawText) => {
 
   } catch (error) {
     console.error('Gemini API structure request failed:', error.message);
+    if (error.response?.data) {
+      console.error('Gemini API Error Detail:', JSON.stringify(error.response.data, null, 2));
+    }
     console.log('Falling back to robust deterministic parser.');
     return parseTextDeterministically(rawText);
   }
@@ -430,7 +435,7 @@ const parseExamImagesMultimodal = async (files, lang = 'eng+hin') => {
       console.log(`Uploaded file page ${i + 1}/${files.length} formatted to inlineData base64.`);
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     
     const response = await axios.post(url, {
       contents: [{
@@ -439,7 +444,13 @@ const parseExamImagesMultimodal = async (files, lang = 'eng+hin') => {
       generationConfig: {
         responseMimeType: "application/json"
       }
-    });
+    },{
+        headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': process.env.GEMINI_API_KEY // <--- Added authorization protocol header
+      }
+      }
+    );
 
     const candidate = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!candidate) {
@@ -452,6 +463,9 @@ const parseExamImagesMultimodal = async (files, lang = 'eng+hin') => {
 
   } catch (error) {
     console.error('Gemini Multimodal Vision request failed:', error.message);
+    if (error.response?.data) {
+      console.error('Gemini API Error Detail:', JSON.stringify(error.response.data, null, 2));
+    }
     throw error;
   }
 };
