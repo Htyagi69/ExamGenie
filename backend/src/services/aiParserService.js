@@ -305,7 +305,7 @@ const parseExamText = async (rawText) => {
       6. Never assign or extract marks for subparts/sub-questions. The "marks" property in elements of the "subQuestions" array must always be set to 0. All marks must only be mapped to the parent/main question.
     `;
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     
     const response = await axios.post(url, {
       contents: [{
